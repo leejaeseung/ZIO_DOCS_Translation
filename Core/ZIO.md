@@ -20,7 +20,7 @@ ZIO 이펙트는 fiber 기반의 동시성 모델을 이용한다. 이는 미리
 - **`A` - 성공 타입** : 이펙트는 `A` 타입의 값으로 성공할 수 있다. 만약 성공 타입에 `Unit` 을 주면, 이 이펙트는 유의미한 정보를 만들지 않는다는 뜻이다. 만약 성공 타입에 `Nothing` 을 주면, 이 이펙트는 무한히 실행된다는 뜻이다. (혹은 실패 시까지)
 
 다음 예제에서, `readLine` 함수는 어떤 서비스(환경)도 필요하지 않고, `IOException` 타입으로 실패하거나 `String` 타입으로 성공할 수 있다:
-```
+```scala
 import zio._
 import java.io.IOException
 
@@ -42,13 +42,13 @@ val readLine: ZIO[Any, IOException, String] =
 
 ## Success Values
 `ZIO.succeed` 함수를 사용하면 특정 값으로부터 `ZIO` 이펙트를 만들어낼 수 있다.
-```
+```scala
 import zio._
 
 val s1 = ZIO.succeed(42)
 ```
 `ZIO` 타입 별칭으로 가져올 수도 있다. (`ZIO` 의 `Task` 타입)
-```
+```scala
 import zio._
 
 val s2: Task[Int] = ZIO.succeed(42)
@@ -56,7 +56,7 @@ val s2: Task[Int] = ZIO.succeed(42)
 
 ## Failure Values
 `ZIO.fail` 함수를 사용하면 모델의 실패 이펙트를 만들 수 있다:
-```
+```scala
 import zio._
 
 val f1 = ZIO.fail("Uh oh!")
@@ -64,7 +64,7 @@ val f1 = ZIO.fail("Uh oh!")
 `ZIO` 데이터 타입은 에러 타입에 대한 제한이 없다. 에러 타입으로 `String`, `Exception`, 혹은 어플리케이션에 적절한 커스텀 타입을 쓸 수도 있다.
 
 많은 어플리케이션은 `Throwable` 이나 `Exception` 으로 모델의 실패를 나타내는데, `ZIO` 로도 가능하다.
-```
+```scala
 import zio._
 
 val f2 = ZIO.fail(new Exception("Uh oh!"))
@@ -75,20 +75,20 @@ val f2 = ZIO.fail(new Exception("Uh oh!"))
 
 ### Option
 1. `ZIO.formOption` - `Option` 을 `ZIO` 이펙트로 바꿀 수 있다:
-```
+```scala
 import zio._
 
 val zoption: IO[Option[Nothing], Int] = ZIO.fromOption(Some(2))
 ```
 에러 타입인 경우 `Option[Nothing]` 으로 표현된다. 하지만 이는 값이 왜 존재하지 않는지에 대한 정보를 제공하진 않는다.</br>
 `mapError` 함수를 사용하면 `Option[Nothing]` 대신 더 정확한 에러 타입으로 나타낼 수도 있다:
-```
+```scala
 import zio._
 
 val zoption2: IO[String, Int] = zoption.mapError(_ => "It wasn't there!")
 ```
 결과의 Optional 특성을 유지하면서 다른 연산들과 손쉽게 합성할 수 있다. (이는 `OptionT` 와 유사하다.)
-```
+```scala
 import zio._
 
 val maybeId: IO[Option[Nothing], String] = ZIO.fromOption(Some("abc123"))
@@ -103,7 +103,7 @@ val result: IO[Throwable, Option[(User, Team)]] = (for {
 } yield (user, team)).unsome
 ```
 2. `ZIO.some`/`ZIO.none` - Optional 값에 대해 바로 `ZIO` 를 만들 수 있다:
-```
+```scala
 import zio._
 
 val someInt: ZIO[Any, Nothing, Option[Int]]     = ZIO.some(3)
@@ -113,7 +113,7 @@ val noneInt: ZIO[Any, Nothing, Option[Nothing]] = ZIO.none
 - `ZIO.getOrFail` 은 `Throwable` 타입으로 실패시킨다.
 - `ZIO.getOrFailUnit` 은 `Unit` 타입으로 실패시킨다.
 - `ZIO.getOrFailWith` 는 커스텀 에러 타입으로 실패시킨다.
-```
+```scala
 import zio._
 
 def parseInt(input: String): Option[Int] = input.toIntOption
@@ -134,7 +134,7 @@ val r3: ZIO[Any, NumberFormatException, Int] =
 - `ZIO.noneOrFail` 은 `Option` 의 값 타입을 실패시킨다.
 - `ZIO.noneOrFailUnit` 은 `Unit` 타입으로 실패시킨다.
 - `ZIO.noneOrFailWith` 는 커스텀 에러 타입으로 실패시킨다.
-```
+```scala
 import zio._
 
 val optionalValue: Option[String] = ???
@@ -159,7 +159,7 @@ val r2: ZIO[Any, NumberFormatException, Unit] =
 | `right` | `A` | `UIO[Either[Nothing, A]]` |
 
 `Either` 는 `ZIO.fromEither` 함수를 사용해 `ZIO` 이펙트로 변환할 수 있다:
-```
+```scala
 import zio._
 
 val zeither = ZIO.fromEither(Right("Success!"))
@@ -173,7 +173,7 @@ val zeither = ZIO.fromEither(Right("Success!"))
 | `fromTry` | `scala.util.Try[A]` | `Task[A]` |
 
 `Try` 값은 `ZIO.fromTry` 함수를 사용해 `ZIO` 이펙트로 변환할 수 있다:
-```
+```scala
 import zio._
 import scala.util.Try
 
@@ -192,7 +192,7 @@ val ztry = ZIO.fromTry(Try(42 / 0))
 | `fromFutureInterrupt` | `ExecutionContext => scala.concurrent.Future[A]` | `Task[A]` |
 
 `Future` 값은 `ZIO.fromFuture` 함수를 사용해 `ZIO` 이펙트로 변환할 수 있다:
-```
+```scala
 import zio._
 import scala.concurrent.Future
 
@@ -215,7 +215,7 @@ val zfuture: Task[String] =
 | `fromPromiseScala` | `scala.concurrent.Promise[A]` | `Task[A]` |
 
 `Promise` 값은 `ZIO.fromPromiseScala` 함수를 사용해 `ZIO` 이펙트로 변환할 수 있다:
-```
+```scala
 import zio._
 import scala.util._
 
@@ -241,7 +241,7 @@ for {
 | `fromFiberZIO` | `IO[E, Fiber[E, A]]` | `IO[E, A]` |
 
 `Fiber` 값은 `ZIO.fromFiber` 함수를 사용해 `ZIO` 이펙트로 변환할 수 있다:
-```
+```scala
 import zio._
 
 val io: IO[Nothing, String] = ZIO.fromFiber(Fiber.succeed("Hello from Fiber!"))
@@ -261,7 +261,7 @@ val io: IO[Nothing, String] = ZIO.fromFiber(Fiber.succeed("Hello from Fiber!"))
 | `attempt` | `A` | `Task[A]` | Imports a (partial) synchronous side-effect |
 
 `ZIO.attempt` 를 사용해 동기적인 부수효과를 `ZIO` 이펙트로 변환할 수 있다:
-```
+```scala
 import zio._
 import scala.io.StdIn
 
@@ -272,7 +272,7 @@ val getLine: Task[String] =
 반환되는 에러 타입은 항상 `Throwable` 이다. 부수효과는 모든 유형의 `Throwable` 로 예외를 발생시킬 수 있기 때문.
 
 부수효과가 어떤 예외도 던지지 않는다면, `ZIO.succeed` 를 사용해 부수효과를 `ZIO` 이펙트로 변환할 수 있다:
-```
+```scala
 import zio._
 
 def printLine(line: String): UIO[Unit] =
@@ -284,7 +284,7 @@ val succeedTask: UIO[Long] =
 모든 부수효과에 대해 확실하게 알고 있지 않다면 `ZIO.succeed` 대신 `ZIO.attempt` 를 사용해 이펙트로 변환하는게 좋다.
 
 너무 광범위하다면, `ZIO.retainToOrDie` 를 사용해 특정 예외에 대해서는 유지시키고 다른 예외에 대해선 `ZIO` 를 끝낼 수 있다.
-```
+```scala
 import zio._
 import java.io.IOException
 
@@ -307,7 +307,7 @@ val printLine2: IO[IOException, String] =
 `ZIO` 는 이러한 blocking 부수효과들을 안전하게 `ZIO` 이펙트로 변환할 수 있는 `zio.blocking` 패키지를 제공한다.
 
 `attemptBlocking` 을 사용해 blocking 부수효과를 `ZIO` 이펙트로 변환할 수 있다.
-```
+```scala
 import zio._
 
 val sleeping =
@@ -320,7 +320,7 @@ val sleeping =
 
 어떤 blocking 부수효과들은 취소 이펙트 호출로만 중단될 수 있다.</br>
 `attemptBlockingCancelable` 를 사용하면 이러한 부수효과를 변환할 수 있다:
-```
+```scala
 import zio._
 import java.net.ServerSocket
 
@@ -329,7 +329,7 @@ def accept(l: ServerSocket) =
 ```
 
 부수 효과가 이미 `ZIO` 이펙트로 변환되었다면, `attemptBlocking` 대신 `blocking` 메소드를 사용해 blocking 스레드 풀에서 이펙트가 수행됨을 보장할 수 있다:</br>
-```
+```scala
 import zio._
 import scala.io.{ Codec, Source }
 
@@ -352,7 +352,7 @@ def safeDownload(url: String) =
 | `asyncInterrupt` | `(ZIO[R, E, A] => Unit) => Either[URIO[R, Any], ZIO[R, E, A]]` | `ZIO[R, E, A]` |
 
 `ZIO.async` 를 사용해 콜백기반 API 의 비동기 부수효과를 `ZIO` 이펙트로 변환할 수 있다:
-```
+```scala
 import zio._
 
 object legacy {
@@ -380,7 +380,7 @@ val login: IO[AuthError, User] =
 | `suspendSucceed` | `ZIO[R, E, A]` | `ZIO[R, E, A]` |
 
 `suspend` 메소드를 사용해 `RIO[R, A]` 이펙트를 정지시킬 수 있다:
-```
+```scala
 import zio._
 import java.io.IOException
 
@@ -397,7 +397,7 @@ val suspendedEffect: RIO[Any, ZIO[Any, IOException, Unit]] =
 
 다음 예제에서 비동기 primary 스레드 풀에서 병렬로 수행할 20 개의 blocking 작업을 만들었다.</br>
 우리의 머신이 8 CPU 코어라면 `ZIO` 는 16 (2 * 8) 사이즈의 스레드 풀을 만들 것이다. 이 프로그램을 돌리면 모든 스레드가 막히고 4 개(20 - 16)의 blocking 작업이 남을 것이다.
-```
+```scala
 import zio._
 
 def blockingTask(n: Int): UIO[Unit] =
@@ -418,7 +418,7 @@ val program = ZIO.foreachPar((1 to 100).toArray)(blockingTask)
 `blocking` 명령은 `ZIO` 이펙트를 받아 blocking 스레드 풀에서 실행할 다른 이펙트를 반환한다.
 
 또한, `attemptBlocking` 을 사용해 I/O 를 blocking 하는 동기적인 이펙트를 `ZIO` 로 변환할 수 있다:
-```
+```scala
 import zio._
 
 def blockingTask(n: Int) = ZIO.attemptBlocking {
@@ -434,7 +434,7 @@ def blockingTask(n: Int) = ZIO.attemptBlocking {
 ## map
 
 `A => B` 형태의 함수를 사용하면 `IO[E, A]` 타입을 `IO[E, B]` 로 바꿀 수 있다. 이를 통해 작업에 의해 생성된 값을 다른 값으로 변환할 수 있다.
-```
+```scala
 import zio._
 
 val mappedValue: UIO[Int] = ZIO.succeed(21).map(_ * 2)
@@ -442,7 +442,7 @@ val mappedValue: UIO[Int] = ZIO.succeed(21).map(_ * 2)
 ## Tapping
 
 `ZIO.tap` 을 사용하면 기존 이펙트의 반환값을 바꾸지 않고 성공 값으로 다른 effectful 한 작업을 할 수 있다. (기존 ZIO 의 성공 값을 중간에 볼 수 있다.)
-```
+```scala
 trait ZIO[-R, +E, +A] {
   def tap[R1 <: R, E1 >: E](f: A => ZIO[R1, E1, Any]): ZIO[R1, E1, A]
   def tapSome[R1 <: R, E1 >: E](f: PartialFunction[A, ZIO[R1, E1, Any]]): ZIO[R1, E1, A]
@@ -478,7 +478,7 @@ object MainApp extends ZIOAppDefault {
 ## Chaining
 
 `flatMap` 을 사용하면 두 가지 작업을 차례대로 수행할 수 있다. 첫 번째 작업은 두 번째 작업에 영향을 줄 수 있다.
-```
+```scala
 import zio._
 
 val chainedActionsValue: UIO[List[Int]] = ZIO.succeed(List(1, 2, 3)).flatMap { list =>
@@ -493,7 +493,7 @@ val chainedActionsValue: UIO[List[Int]] = ZIO.succeed(List(1, 2, 3)).flatMap { l
 (예외를 던지면 나머지 명령문이 조기 종료되는 것과 같이)
 
 `ZIO` 데이터 타입이 `flatMap` 과 `map` 을 지원하기 때문에 scala 의 for comprehensions 를 이용해 순차 이펙트를 만들 수 있다:
-```
+```scala
 import zio._
 
 val program =
@@ -508,7 +508,7 @@ for comprehensions 은 일련의 이펙트를 구성하기 위한 보다 절차�
 ## Zipping
 
 `zip` 을 사용하면 두 개의 이펙트를 하나로 합칠 수 있다. zip 된 이펙트는 두 이펙트가 성공한 값의 튜플로 성공한다.
-```
+```scala
 import zio._
 
 val zipped: UIO[(String, Int)] =
@@ -524,7 +524,7 @@ val zipped: UIO[(String, Int)] =
 때때로 이펙트의 성공 값이 유용하지 않을 때가 있다.(에를 들어 `Unit`)</br>
 이런 경우, `zipLeft` 나 `zipRight` 를 사용하면 편리하다.</br>
 이 함수들은 처음 `zip` 을 수행하고 이후엔 튜플에 `map` 을 수행하며 나머지 한 쪽을 무시한다:
-```
+```scala
 import zio._
 
 val zipRight1 =
@@ -532,7 +532,7 @@ val zipRight1 =
 ```
 
 `zipLeft` 와 `zipRight` 는 각각 `*>` , `<*` 연산자로 사용할 수도 있다.
-```
+```scala
 import zio._
 
 val zipRight2 =
@@ -565,7 +565,7 @@ fail-fast 방식이 싫다면, 잠재적으로 실패한 이펙트는 `ZIO#eithe
 ## Racing
 
 `ZIO` 의 `race` 함수는 여러 개의 병렬 이펙트 중 가장 먼저 성공한 결과 값을 반환한다:
-```
+```scala
 import zio._
 
 for {
@@ -578,7 +578,7 @@ for {
 ## Timeout
 
 `ZIO#timeout` 을 사용해 모든 이펙트에 대해 timeout 을 걸 수 있다. 이는 `Option` 값으로 성공하는데, `None` 이라면 이펙트가 완료되기 전에 timeout 이 난 것이다.
-```
+```scala
 import zio._
 
 ZIO.succeed("Hello").timeout(10.seconds)
@@ -595,13 +595,13 @@ ZIO.succeed("Hello").timeout(10.seconds)
 | `ZIO.absolve` | `ZIO[R, E, Either[E, A]]` | `ZIO[R, E, A]` |
 
 `ZIO#either` 는 `ZIO[R, E, A]` 를 받고 `ZIO[R, Nothing, Either[E, A]]` 를 생성함으로써 에러를 뽑아낼 수 있다.
-```
+```scala
 val zeither: UIO[Either[String, Int]] =
   ZIO.fail("Uh oh!").either
 ```
 
 `either` 와 반대되는 `ZIO.absolve` 는 `ZIO[R, Nothing, Either[E, A]]` 를 받고 `ZIO[R, E, A]` 를 생성함으로써 에러를 뽑아낼 수 있다.
-```
+```scala
 def sqrt(io: UIO[Double]): IO[String, Double] =
   ZIO.absolve(
     io.map(value =>
@@ -627,7 +627,7 @@ def sqrt(io: UIO[Double]): IO[String, Double] =
 ### Catching All Errors
 
 `catchAll` 을 사용하면 **모든** 타입의 에러를 recover 및 catch 를 할 수 있다:
-```
+```scala
 val z: IO[IOException, Array[Byte]] =
   readFile("primary.json").catchAll(_ =>
     readFile("backup.json"))
@@ -639,7 +639,7 @@ val z: IO[IOException, Array[Byte]] =
 ### Catching Some Errors
 
 `catchSome` 을 사용하면 **특정** 타입의 에러를 recover 및 catch 를 할 수 있다:
-```
+```scala
 val data: IO[IOException, Array[Byte]] =
   readFile("primary.data").catchSome {
     case _ : FileNotFoundException =>
@@ -660,7 +660,7 @@ val data: IO[IOException, Array[Byte]] =
 | `orElseSucceed` | `A1` | `URIO[R, A1]` |
 
 `orElse` 의 조합을 통해 이펙트가 실패했을 때 다른 이펙트를 시도해 나갈 수 있다:
-```
+```scala
 val primaryOrBackupData: IO[IOException, Array[Byte]] =
   readFile("primary.data").orElse(readFile("backup.data"))
 ```
@@ -679,7 +679,7 @@ Scala 의 `Option` 과 `Either` 는 동시에 실패, 성공을 처리할 수 �
 이와 비슷하게, `ZIO` 도 실패, 성공을 동시에 처리하는 몇몇의 함수를 제공한다.
 
 첫째로 `fold` 함수는 실패, 성공에 대한 처리를 non-effectful 하게 할 수 있도록 제공한다:(non-effectful 한 핸들러를 제공한다.)
-```
+```scala
 lazy val DefaultData: Array[Byte] = Array(0, 0)
 
 val primaryOrDefaultData: UIO[Array[Byte]] =
@@ -689,7 +689,7 @@ val primaryOrDefaultData: UIO[Array[Byte]] =
 ```
 
 두 번째로 `foldZio` 함수는 실패, 성공에 대한 처리를 effectful 하게 할 수 있도록 제공한다:(effectful 한 핸들러를 제공한다.)
-```
+```scala
 val primaryOrSecondaryData: IO[IOException, Array[Byte]] =
   readFile("primary.data").foldZIO(
     _    => readFile("secondary.data"),
@@ -699,7 +699,7 @@ val primaryOrSecondaryData: IO[IOException, Array[Byte]] =
 `foldZio` 는 강력하고 빠르기 때문에 거의 모든 에러 처리 함수에서 정의해 사용한다.
 
 아래 예제는 `readUrls` 함수의 실패, 성공을 `foldZIO` 로 처리하는 예제이다:
-```
+```scala
 val urls: UIO[Content] =
   readUrls("urls.json").foldZIO(
     error   => ZIO.succeed(NoContent(error)),
@@ -727,13 +727,13 @@ val urls: UIO[Content] =
 실패 이펙트를 재시도하기 위한 유용한 `ZIO` 함수들이 있다.
 
 가장 기본인 `ZIO#retry` 함수는, 특정 정책에 의해 이펙트가 실패하면 `Schedule` 을 받아 첫 이펙트를 재시도하는 새로운 이펙트를 반환한다:
-```
+```scala
 val retriedOpenFile: ZIO[Any, IOException, Array[Byte]] =
   readFile("primary.data").retry(Schedule.recurs(5))
 ```
 
 다음으로 가장 강력한 함수인 `ZIO#retryOrElse` 는, 특정 정책에 의해 이펙트가 실패했을 때의 대체 fallback 을 정의할 수 있다:
-```
+```scala
 readFile("primary.data").retryOrElse(
   Schedule.recurs(5),
   (_, _:Long) => ZIO.succeed(DefaultData)
@@ -758,7 +758,7 @@ Scala 는 `try` / `finally` 구문으로 자원의 누수를 막을 수 있게 �
 `ZIO` 의 `ensuring` 함수는 동기/비동기 모두에서 이러한 작업을 할 수 있게 해준다. 즉, `try` / `finally` 동작을 비동기 영역에서 할 수 있다.
 
 `try` / `finally` 와 비슷하게 `ensuring` 명령은 이펙트가 실행되고 어떤 이유에서든 종료되었을때, finalizer 가 실행된다:
-```
+```scala
 import zio._
 
 val finalizer =
@@ -776,7 +776,7 @@ finalizer 는 실패할 수 없으므로, 모든 에러는 내부저으로 처�
 `try` / `finally` 와는 다르게 `ensuring` 은 비동기 및 동시 이펙트를 포함하는 모든 이펙트 타입에서 동작한다.
 
 아래는 이펙트가 끝나기 전에 정리 작업을 실행하는 `ensuring` 의 또다른 예시이다:
-```
+```scala
 import zio._
 
 import zio.Task
@@ -796,7 +796,7 @@ val composite = action.ensuring(cleanupAction)
 
 Scala 의 중첨된 `try` / `finally` finalizer 들은 중간에 중지될 수 없다.</br>
 중첩된 finalizer 가 치명적인 이유로 실패해도 바깥의 finalizer 들은 순서에 따라 그대로 실행된다.
-```
+```scala
 try {
   try {
     try {
@@ -808,7 +808,7 @@ try {
 
 `ZIO` 에서도 마찬가지로 finalizer 들은 멈출 수 없다.</br>
 즉, 자원의 누수가 있는 버그 finalizer 가 있다면 최소한의 자원 누수는 발생한다. 다른 finalizer 들은 그대로 실행되기 때문.
-```
+```scala
 val io = ???
 io.ensuring(f1)
  .ensuring(f2)
@@ -819,7 +819,7 @@ io.ensuring(f1)
 
 Scala 의 `try` / `finally` 는 자원을 관리할 때도 사용된다.</br>
 일반적으로 `try` / `finally` 는 새로운 소켓 커넥션을 열거나 파일을 열 때처럼 자원의 획득과 해제를 안전하게 수행하기 위해 사용된다:
-```
+```scala
 val handle = openFile(name)
 
 try {
@@ -837,7 +837,7 @@ try {
 `acquireRelease` 는 동기/비동기 액션에서 동작하고, fiber 의 중단에서도 매끄럽게 동작하며, 오류가 사라지지 않는 것을 보장하는 다른 에러 모델을 기반으로 한다.
 
 `acquireRelease` 는 획득/사용/해제 액션으로 이루어져 있다.
-```
+```scala
 import zio._
 
 val groupedFileData: IO[IOException, Unit] = ZIO.acquireReleaseWith(openFile("data.json"))(closeFile(_)) { file =>
@@ -852,7 +852,7 @@ val groupedFileData: IO[IOException, Unit] = ZIO.acquireReleaseWith(openFile("da
 중첩된 `acquireRelease` 들에서 바깥 자원이 획득되면 그 바깥 자원은 내부 자원의 해제가 실패해도 항상 해제된다. 
 
 `acquireRelease` 의 전체 동작 예시이다:
-```
+```scala
 import zio._
 import java.io.{ File, FileInputStream }
 import java.nio.charset.StandardCharsets
@@ -902,7 +902,7 @@ object Main extends ZIOAppDefault {
 
 `ZIO` 이펙트는 `ZIOAspect` 라 불리는 데이터 타입을 가진다. 이것은 `ZIO` 이펙트를 수정하고 특수한 `ZIO` 이펙트로 변환할 수 있게 해준다.</br>
 `@@` 문법을 사용해 `ZIO` 이펙트에 새로운 aspect 를 추가할 수 있다:
-```
+```scala
 import zio._
 
 val myApp: ZIO[Any, Throwable, String] =
@@ -915,7 +915,7 @@ val myApp: ZIO[Any, Throwable, String] =
 `ZIOAspect` 를 다음 타입인 함수로 생각할 수도 있다 : `ZIO[R, E, A] => ZIO[R, E, A]`
 
 `@@` 연산자를 사용해 여러 aspect 들을 합칠 수 있다:
-```
+```scala
 import zio._
 
 def download(url: String): ZIO[Any, Throwable, Chunk[Byte]] = ZIO.succeed(???)
