@@ -744,16 +744,21 @@ readFile("primary.data").retryOrElse(
 
 # Resource Management
 
-ZIO's resource management features work across synchronous, asynchronous, concurrent, and other effect types, and provide strong guarantees even in the presence of failure, interruption, or defects in the application.
+`ZIO` 의 자원 관리 기능은 동기, 비동기, 동시성, 또는 기타 이펙트 타입에서 작동한다.</br>
+그리고 어플리케이션의 실패, 중단 또는 결함이 있는 경우에 강력한 보증을 제공한다.
 
-Finalizing
-Scala has a try / finally construct which helps us to make sure we don't leak resources because no matter what happens in the try, the finally block will be executed. So we can open files in the try block, and then we can close them in the finally block, and that gives us the guarantee that we will not leak resources.
+## Finalizing
 
-Asynchronous Try / Finally
-The problem with the try / finally construct is that it only applies to synchronous code, meaning it doesn't work for asynchronous code. ZIO gives us a method called ensuring that works with either synchronous or asynchronous actions. So we have a functional try / finally even for asynchronous regions of our code.
+Scala 는 `try` / `finally` 구문으로 자원의 누수를 막을 수 있게 도와준다. `try` 에서 어떤 일이 생겨도, `finally` 는 항상 실행되기 때문.</br>
+파일을 `try` 에서 열고, `finally` 에서 닫을 수 있으므로 자원의 누수가 없었음이 보장된다.
 
-Like try / finally, the ensuring operation guarantees that if an effect begins executing and then terminates (for whatever reason), then the finalizer will begin executing:
+### Asynchronous Try / Finally
 
+`try` / `finally` 구문의 문제점은 비동기 코드가 아닌 동기 코드에만 적용할 수 있다는 점이다. </br>
+`ZIO` 의 `ensuring` 함수는 동기/비동기 모두에서 이러한 작업을 할 수 있게 해준다. 즉, `try` / `finally` 동작을 비동기 영역에서 할 수 있다.
+
+`try` / `finally` 와 비슷하게 `ensuring` 명령은 이펙트가 실행되고 어떤 이유에서든 종료되었을때, finalizer 가 실행된다:
+```
 import zio._
 
 val finalizer =
@@ -761,15 +766,17 @@ val finalizer =
 
 val finalized: IO[String, Unit] =
   ZIO.fail("Failed!").ensuring(finalizer)
+```
 
-The finalizer is not allowed to fail, which means that it must handle any errors internally.
+finalizer 는 실패할 수 없으므로, 모든 에러는 내부저으로 처리되어야 한다.
 
-Like try / finally, finalizers can be nested, and the failure of any inner finalizer will not affect outer finalizers. Nested finalizers will be executed in reverse order, and linearly (not in parallel).
+`try` / `finally` 와 비슷하게 finalizer 들은 중첩될 수 있고, 모든 내부의 finalizer 의 실패는 다른 finalizer 들에게 영향을 주지 않는다.</br>
+중첩된 finalizer 들은 역순으로 실행되고 선형적이다. (병렬 수행되지 않는다.)
 
-Unlike try / finally, ensuring works across all types of effects, including asynchronous and concurrent effects.
+`try` / `finally` 와는 다르게 `ensuring` 은 비동기 및 동시 이펙트를 포함하는 모든 이펙트 타입에서 동작한다.
 
-Here is another example of ensuring that our clean-up action is called before our effect is done:
-
+아래는 이펙트가 끝나기 전에 정리 작업을 실행하는 `ensuring` 의 또다른 예시이다:
+```
 import zio._
 
 import zio.Task
@@ -779,13 +786,17 @@ val action: Task[String] =
     ZIO.fail(new Throwable("Boom!"))
 val cleanupAction: UIO[Unit] = ZIO.succeed(i -= 1)
 val composite = action.ensuring(cleanupAction)
+```
 
-CAUTION
-Finalizers offer very powerful guarantees, but they are low-level, and should generally not be used for releasing resources. For higher-level logic built on ensuring, see ZIO#acquireReleaseWith in the acquire release section.
+> ### 주의점
+> finalizer 들은 강력한 보증을 제공하지만 low-level 이며, 일반적으로 자원을 해제하는데에 사용하면 안된다.</br>
+> high-level 로직을 `ensuring` 으로 만들고 싶다면, acquire release 섹션의 `ZIO#acquireReleaseWith` 를 참고해라.
 
-Unstoppable Finalizers
-In Scala when we nest try / finally finalizers, they cannot be stopped. If we have nested finalizers and one of them fails for some sort of catastrophic reason the ones on the outside will still be run and in the correct order.
+### Unstoppable Finalizers
 
+Scala 의 중첨된 `try` / `finally` finalizer 들은 중간에 중지될 수 없다.</br>
+중첩된 finalizer 가 치명적인 이유로 실패해도 바깥의 finalizer 들은 순서에 따라 그대로 실행된다.
+```
 try {
   try {
     try {
@@ -793,31 +804,40 @@ try {
     } finally f1
   } finally f2
 } finally f3
+```
 
-Also in ZIO like try / finally, the finalizers are unstoppable. This means if we have a buggy finalizer that is going to leak some resources, we will leak the minimum amount of resources because all other finalizers will still be run in the correct order.
-
+`ZIO` 에서도 마찬가지로 finalizer 들은 멈출 수 없다.</br>
+즉, 자원의 누수가 있는 버그 finalizer 가 있다면 최소한의 자원 누수는 발생한다. 다른 finalizer 들은 그대로 실행되기 때문.
+```
 val io = ???
 io.ensuring(f1)
  .ensuring(f2)
  .ensuring(f3)
+```
 
-AcquireRelease
-In Scala the try / finally is often used to manage resources. A common use for try / finally is safely acquiring and releasing resources, such as new socket connections or opened files:
+## AcquireRelease
 
+Scala 의 `try` / `finally` 는 자원을 관리할 때도 사용된다.</br>
+일반적으로 `try` / `finally` 는 새로운 소켓 커넥션을 열거나 파일을 열 때처럼 자원의 획득과 해제를 안전하게 수행하기 위해 사용된다:
+```
 val handle = openFile(name)
 
 try {
   processFile(handle)
 } finally closeFile(handle)
+```
 
-ZIO encapsulates this common pattern with ZIO#acquireRelease, which allows us to specify an acquire effect, which acquires a resource; a release effect, which releases it; and a use effect, which uses the resource. Acquire release lets us open a file and close the file and no matter what happens when we are using that resource.
+`ZIO` 는 위와 같은 일반적인 패턴을 `ZIO#acquireRelease` 로 캡슐화했다. 이를 통해 자원 획득, 자원 사용, 자원 해제에 대한 이펙트를 명시해 사용할 수 있다.</br>
+`acquireRelease` 를 사용하면 파일을 열고 닫는 것을 신경쓰지 않고 자원을 사용할 수 있다.
 
-The release action is guaranteed to be executed by the runtime system, even if the utilize action throws an exception or the executing fiber is interrupted.
+해제 액션은 런타임 시스템에 수행됨이 보장된다. (예외가 발생하거나 실행중인 fiber 가 중단되더라도)
 
-Acquire release is a built-in primitive that let us safely acquire and release resources. It is used for a similar purpose as try / catch / finally, only acquire release work with synchronous and asynchronous actions, work seamlessly with fiber interruption, and is built on a different error model that ensures no errors are ever swallowed.
+`acquireRelease` 는 자원을 안전하게 획득/해제할 수 있는 기본 제공 함수이다.</br>
+`try` / `catch` / `finally` 와 비슷한 목적으로 사용된다.</br>
+`acquireRelease` 는 동기/비동기 액션에서 동작하고, fiber 의 중단에서도 매끄럽게 동작하며, 오류가 사라지지 않는 것을 보장하는 다른 에러 모델을 기반으로 한다.
 
-Acquire release consist of an acquire action, a utilize action (which uses the acquired resource), and a release action.
-
+`acquireRelease` 는 획득/사용/해제 액션으로 이루어져 있다.
+```
 import zio._
 
 val groupedFileData: IO[IOException, Unit] = ZIO.acquireReleaseWith(openFile("data.json"))(closeFile(_)) { file =>
@@ -826,12 +846,13 @@ val groupedFileData: IO[IOException, Unit] = ZIO.acquireReleaseWith(openFile("da
     grouped <- groupData(data)
   } yield grouped
 }
+```
 
+`acquireRelease` 는 합성이 가능하게 되어있다.</br>
+중첩된 `acquireRelease` 들에서 바깥 자원이 획득되면 그 바깥 자원은 내부 자원의 해제가 실패해도 항상 해제된다. 
 
-Acquire releases have compositional semantics, so if an acquire release is nested inside another acquire release, and the outer resource is acquired, then the outer release will always be called, even if, for example, the inner release fails.
-
-Let's look at a full working example on using acquire release:
-
+`acquireRelease` 의 전체 동작 예시이다:
+```
 import zio._
 import java.io.{ File, FileInputStream }
 import java.nio.charset.StandardCharsets
@@ -858,33 +879,43 @@ object Main extends ZIOAppDefault {
     string <- ZIO.acquireReleaseWith(ZIO.attempt(new FileInputStream(file)))(closeStream)(convertBytes(_, len))
   } yield string
 }
+```
 
+# ZIO Aspect
 
-ZIO Aspect
-There are two types of concerns in an application, core concerns, and cross-cutting concerns. Cross-cutting concerns are shared among different parts of our application. We usually find them scattered and duplicated across our application, or they are tangled up with our primary concerns. This reduces the level of modularity of our programs.
+어플리케이션은 `Core concerns` , `Cross-cutting concerns` 두 가지 타입의 관심사가 있다.</br>
+`Cross-cutting concerns` 는 어플리케이션의 여러 부분에서 공유된다. 이것들은 어플리케이션에 전체적으로 흩뿌려지고 중복되어 있거나, 주요 관심사와 얽혀 있다.</br>
+이것은 프로그램의 모듈성을 떨어뜨린다.
 
-A cross-cutting concern is more about how we do something than what we are doing. For example, when we are downloading a bunch of files, creating a socket to download each one is the core concern because it is a question of what rather than the how, but the following concerns are cross-cutting ones:
+`Cross-cutting concerns` 는 우리가 무엇을 하냐 보단 **무엇을 어떻게 하냐** 에 관한 것이다.</br>
+예를 들어, 파일 묶음을 다운로드할 때 다운로드할 각각을 위한 소켓을 만드는 것은 `Core concerns` 이다. 이는 어떻게 보단 **무엇을 하냐** 에 초점을 두었기 때문이다.</br>
+하지만 다음은 `Cross-cutting concerns` 들이다.
 
-Downloading files sequentially or in parallel
-Retrying and timing out the download process
-Logging and monitoring the download process
-So they don't affect the return type of our workflows, but they add some new aspects or change their behavior.
+- 파일을 다운로드하는 방법 : **순차적** or **병렬젹**
+- 다운로드 프로세스에서의 재시도와 타임아웃
+- 다운로드 프로세스의 로깅과 모니터링
 
-To increase the modularity of our applications, we can separate cross-cutting concerns from the main logic of our programs. ZIO supports this programming paradigm, which is called aspect-oriented programming.
+따라서 실제 작업의 반환값에는 영향을 미치지 않지만, 작업의 동작에 몇 가지 새로운 aspect 를 추가하거나 변경한다.
 
-The ZIO effect has a data type called ZIOAspect, which allows modifying a ZIO effect and convert it into a specialized ZIO effect. We can add a new aspect to a ZIO effect with @@ syntax like this:
+어플리케이션의 모듈성을 증대시키기 위해, `Cross-cutting concerns` 는 프로그램의 메인 로직과 분리시켜야 한다.</br>
+`ZIO` 는 **관점 지향 프로그래밍** 이라 불리는 이러한 패러다임을 지원한다.
 
+`ZIO` 이펙트는 `ZIOAspect` 라 불리는 데이터 타입을 가진다. 이것은 `ZIO` 이펙트를 수정하고 특수한 `ZIO` 이펙트로 변환할 수 있게 해준다.</br>
+`@@` 문법을 사용해 `ZIO` 이펙트에 새로운 aspect 를 추가할 수 있다:
+```
 import zio._
 
 val myApp: ZIO[Any, Throwable, String] =
   ZIO.attempt("Hello!") @@ ZIOAspect.debug
+```
 
-As we see, the debug aspect doesn't change the return type of our effect, but it adds a new debugging aspect to our effect.
+보다시피, `debug` aspect 는 이펙트의 반환 타입을 변경하지 않았다. 하지만 새로운 `debugging` aspect 가 이펙트에 추가됐다.
 
-ZIOAspect is like a transformer of the ZIO effect, which takes a ZIO effect and converts it to another ZIO effect. We can think of a ZIOAspect as a function of type ZIO[R, E, A] => ZIO[R, E, A].
+`ZIOAspect` 는 `ZIO` 이펙트의 변환기같은 존재이다. `ZIO` 이펙트를 또다른 `ZIO` 이펙트로 바꾸어준다.</br>
+`ZIOAspect` 를 다음 타입인 함수로 생각할 수도 있다 : `ZIO[R, E, A] => ZIO[R, E, A]`
 
-To compose multiple aspects, we can use @@ operator:
-
+`@@` 연산자를 사용해 여러 aspect 들을 합칠 수 있다:
+```
 import zio._
 
 def download(url: String): ZIO[Any, Throwable, Chunk[Byte]] = ZIO.succeed(???)
@@ -894,6 +925,6 @@ ZIO.foreachPar(List("zio.dev", "google.com")) { url =>
     ZIOAspect.retry(Schedule.fibonacci(1.seconds)) @@
     ZIOAspect.loggedWith[Chunk[Byte]](file => s"Downloaded $url file with size of ${file.length} bytes")
 }
+```
 
-
-The order of aspect composition matters. Therefore, if we change the order, the behavior may change.
+aspect 합성의 순서가 중요하므로 순서를 바꾸면 동작도 바뀔 수 있다.
