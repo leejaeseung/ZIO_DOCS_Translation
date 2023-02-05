@@ -1,17 +1,13 @@
----
-id: uio
-title: "UIO"
----
+# UIO
 
-`UIO[A]` is a type alias for `ZIO[Any, Nothing, A]`, which represents an **Unexceptional** effect that doesn't require any specific environment, and cannot fail, but can succeed with an `A`.
+`UIO[A]` 는 `ZIO[Any, Nothing, A]` 의 타입 별칭이다.</br>
+이는 어떤 환경이든 상관없고, **실패하지 않으며** `A` 로 성공하는 이펙트를 나타낸다.
 
-:::note
+> ### NOTE
+> 스칼라에서 _타입 별칭_이란 원본 타입을 매번 반복하는 것을 피하기 위해 다른 타입에 이름을 주는 방법이다.</br>
+> 이는 타입 검사 과정에는 영향을 끼치지 않고, 더 풍부한 API 디자인을 도와준다.
 
-In Scala, the _type alias_ is a way to give a name to another type, to avoid having to repeat the original type again and again. It doesn't affect the type-checking process. It just helps us to have an expressive API design.
-:::
-
-Let's see how the `UIO` type alias is defined:
-
+`UIO` 타입 정의:
 ```scala mdoc:invisible
 import zio.ZIO
 ```
@@ -20,12 +16,15 @@ import zio.ZIO
 type UIO[+A] = ZIO[Any, Nothing, A]
 ```
 
-So `UIO` is equal to a `ZIO` that doesn't need any requirement (because it accepts `Any` environment) and that cannot fail (because in Scala the `Nothing` type is _uninhabitable_, i.e. there can be no actual value of type `Nothing`). It succeeds with `A`.
+따라서 `UIO` 는</br>
+**어떤 환경도 필요없고**(`Any` 환경이므로)</br>
+**실패하지 않는**(스칼라에서 `Nothing` 타입의 실제 값은 있을 수 없다.)</br>
+`ZIO` 와 동일하며, `A` 로 성공한다.
 
-`ZIO` values of type `UIO[A]` are considered _infallible_. Values of this type may produce an `A`, but will never fail.
+`UIO[A]` 타입의 `ZIO` 값은 _실패하지 않는_ 값으로 간주된다. `A` 를 생산하지만 절대 실패하지 않는다.
 
-Let's write a Fibonacci function. In the following example, the `fib` function is an unexceptional effect, since it has no requirements, we don't expect any failure, and it succeeds with a value of type `Int`:
-
+피보나치 함수를 작성해 보자.</br>
+예제를 보면, `fib` 함수는 실패하지 않고 `Int` 타입으로 성공하는 이펙트이다:
 ```scala mdoc:reset:silent
 import zio.{UIO, ZIO}
 
@@ -42,11 +41,10 @@ def fib(n: Int): UIO[Int] =
   }
 ```
 
-:::note Principle of The Least Power
-
-The `ZIO` data type is the most powerful effect in the ZIO library. It helps us to model various types of workflows. On other hand, the type aliases are a way of subtyping and specializing the `ZIO` type, specific for a less powerful workflow. 
-
-Lot of the time, we don't need such a piece of powerful machinery. So as a rule of thumb, whenever we require a less powerful effect, it's better to use the proper specialized type alias.
-
-So there is no need to convert type aliases to the `ZIO` data type, and whenever the `ZIO` data type is required, we can use the most precise type alias to fit our workflow requirement.
-:::
+> ### Principle of The Least Power
+> `ZIO` 데이터 타입은 ZIO 라이브러리에서 가장 강력한 이펙트이다. 이는 워크플로우의 다양한 타입들을 모델링하게 도와준다.</br>
+> 반면에 타입 별칭은 `ZIO` 타입을 좀 더 전문화하고, 하위 유형으로 변환한다. 이는 조금 덜 강력한 워크플로에 적합하다.
+>
+> 대부분의 경우 `ZIO`의 강력한 기능은 필요하지 않다. 따라서 일반적으로 덜 강력한 이펙트가 필요할 때마다 타입 별칭으로 적절한 전문화를 하는게 좋다.</br>
+> 
+> 따라서 `ZIO` 데이터 타입이 필요할 때마다 타입 별칭을 `ZIO` 로 변환할 필요가 없고, 각각의 워크플로가 필요로 하는 가장 적절한 타입 별칭을 사용하면 된다.
