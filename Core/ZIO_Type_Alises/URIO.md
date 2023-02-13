@@ -1,29 +1,26 @@
 # URIO
 
-`URIO[R, A]` is a type alias for `ZIO[R, Nothing, A]`, which represents an effect that requires an `R`, and cannot fail, but can succeed with an `A`.
+`UIO[A]` 는 `ZIO[R, Nothing, A]` 의 타입 별칭이다.</br>
+이는 `R` 환경을 필요로 하고, 실패하지 않으며 `A` 로 성공하는 이펙트를 나타낸다.
 
-:::note
+> ### NOTE
+> 스칼라에서 _타입 별칭_이란 원본 타입을 매번 반복하는 것을 피하기 위해 다른 타입에 이름을 주는 방법이다.</br>
+> 이는 타입 검사 과정에는 영향을 끼치지 않고, 더 풍부한 API 디자인을 도와준다.
 
-In Scala, the _type alias_ is a way to give a name to another type, to avoid having to repeat the original type again and again. It doesn't affect the type-checking process. It just helps us to have an expressive API design.
-:::
-
-Let's see how the `URIO` type alias is defined:
-
-```scala mdoc:invisible
-import zio.ZIO
-```
-
+`URIO` 타입 정의:
 ```scala mdoc:silent
 type URIO[-R, +A] = ZIO[R, Nothing, A]
 ```
 
-So `URIO` is equal to a `ZIO` that requires `R` and cannot fail (because in Scala the `Nothing` type has no inhabitant, so we can't create an instance of type `Nothing`). It succeeds with `A`.
+따라서 `URIO` 는</br>
+**R 환경을 필요로 하고**</br>
+**실패하지 않는**(스칼라에서 `Nothing` 타입의 실제 값은 있을 수 없다.)</br>
+`ZIO` 와 동일하며, `A` 로 성공한다.
 
-:::note Principle of The Least Power
-
-The `ZIO` data type is the most powerful effect in the ZIO library. It helps us to model various types of workflows. On other hand, the type aliases are a way of subtyping and specializing the `ZIO` type, specific for a less powerful workflow. 
-
-Lot of the time, we don't need such a piece of powerful machinery. So as a rule of thumb, whenever we require a less powerful effect, it's better to use the proper specialized type alias.
-
-So there is no need to convert type aliases to the `ZIO` data type, and whenever the `ZIO` data type is required, we can use the most precise type alias to fit our workflow requirement.
-:::
+> ### Principle of The Least Power
+> `ZIO` 데이터 타입은 ZIO 라이브러리에서 가장 강력한 이펙트이다. 이는 워크플로우의 다양한 타입들을 모델링하게 도와준다.</br>
+> 반면에 타입 별칭은 `ZIO` 타입을 좀 더 전문화하고, 하위 유형으로 변환한다. 이는 조금 덜 강력한 워크플로에 적합하다.
+>
+> 대부분의 경우 `ZIO`의 강력한 기능은 필요하지 않다. 따라서 일반적으로 덜 강력한 이펙트가 필요할 때마다 타입 별칭으로 적절한 전문화를 하는게 좋다.</br>
+> 
+> 따라서 `ZIO` 데이터 타입이 필요할 때마다 타입 별칭을 `ZIO` 로 변환할 필요가 없고, 각각의 워크플로가 필요로 하는 가장 적절한 타입 별칭을 사용하면 된다.

@@ -8,10 +8,6 @@
 > 이는 타입 검사 과정에는 영향을 끼치지 않고, 더 풍부한 API 디자인을 도와준다.
 
 `UIO` 타입 정의:
-```scala mdoc:invisible
-import zio.ZIO
-```
-
 ```scala
 type UIO[+A] = ZIO[Any, Nothing, A]
 ```
