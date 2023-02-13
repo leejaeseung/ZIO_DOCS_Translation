@@ -1,20 +1,20 @@
-# URIO
+# RIO
 
-`URIO[R, A]` 는 `ZIO[R, Nothing, A]` 의 타입 별칭이다.</br>
-이는 `R` 환경을 필요로 하고, 실패하지 않으며 `A` 로 성공하는 이펙트를 나타낸다.
+`RIO[R, A]` 는 `ZIO[R, Throwable, A]` 의 타입 별칭이다.</br>
+이는 `R` 환경을 필요로 하고, `Throwable` 값으로 실패할 수 있으며 `A` 로 성공하는 이펙트를 나타낸다.
 
 > ### NOTE
 > 스칼라에서 _타입 별칭_이란 원본 타입을 매번 반복하는 것을 피하기 위해 다른 타입에 이름을 주는 방법이다.</br>
 > 이는 타입 검사 과정에는 영향을 끼치지 않고, 더 풍부한 API 디자인을 도와준다.
 
-`URIO` 타입 정의:
+`RIO` 의 타입 정의:
 ```scala mdoc:silent
-type URIO[-R, +A] = ZIO[R, Nothing, A]
+type RIO[-R, +A]  = ZIO[R, Throwable, A]
 ```
 
-따라서 `URIO` 는</br>
+따라서 `Task` 는</br>
 **R 환경을 필요로 하고**</br>
-**실패하지 않는**(스칼라에서 `Nothing` 타입의 실제 값은 있을 수 없다.)</br>
+**`Throwable` 로 실패할 수 있는**</br>
 `ZIO` 와 동일하며, **`A` 로 성공한다.**
 
 > ### Principle of The Least Power
