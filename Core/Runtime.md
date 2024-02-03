@@ -2,45 +2,48 @@
 
 `Runtime[R]` 은 `R` 환경에서 작업을 실행할 수 있다.
 
-
-
-To run an effect, we need a `Runtime`, which is capable of executing effects. Runtimes bundle a thread pool together with the environment that effects need.
+이펙트를 실행하기 위해 이펙트를 실행할 수 있는 `Runtime` 이 필요하다.</br>
+`Runtime` 들은 이펙트에 필요한 환경과 쓰레드 풀을 묶는다.
 
 ## What is a Runtime System?
 
-Whenever we write a ZIO program, we create a ZIO effect from ZIO constructors plus using its combinators. We are building a blueprint. ZIO effect is just a data structure that describes the execution of a concurrent program. So we end up with a tree data structure that contains lots of different data structures combined together to describe what the ZIO effect should do. This data structure doesn't do anything, it is just a description of a concurrent program.
+`ZIO` 생성자와 컴비네이터로부터 `ZIO` 이펙트를 만들어 `ZIO` 프로그램을 작성할 수 있다. `ZIO` 이펙트는 그저 동시 프로그램을 묘사하는 데이터 구조일 뿐이며, 이걸로 청사진을 그린다.</br>
+그래서 결국에는 `ZIO` 이펙트의 동작을 묘사하는 서로 다른 여러 데이터 구조들이 합쳐진 하나의 트리 데이터 구조가 만들어진다. 이렇게 만들어진 데이터 구조는 동시 프로그램의 설명일 뿐, **아무 동작도 하지 않는다.**
 
-So the most important thing we should keep in mind when we are working with a functional effect system like ZIO is that when we are writing code, printing a string onto the console, reading a file, querying a database, and so forth; We are just writing a workflow or blueprint of an application. We are just building a data structure.
+`ZIO` 와 비슷한 함수형 이펙트 시스템으로 작업할 때 가장 중요한 점은, 우린 그저어플리케이션에 대한 하나의 워크플로우나 청사진을 작성한다는 것이다. (코드를 작성하거나, 문자열을 콘솔에 찍는다거나, 파일을 읽거나, db 에 쿼리를 날린다거나 등의)</br>
+데이터 구조를 만들 뿐이다.
 
-So how can ZIO run these workflows? This is where ZIO Runtime System comes into play. Whenever we run an `unsaferun` function, the Runtime System is responsible to step through all the instructions described by the ZIO effect and execute them.
+`ZIO` 는 어떻게 이 워크플로우들을 실행할까?</br>
+`ZIO Runtime System` 이 이를 가능케 한다. `unsaferun` 함수를 실행할 때마다 `ZIO` 이펙트로 만들어진 모든 명령들이 단계적으로 실행된다.
 
-To simplify everything, we can think of a Runtime System like a black box that takes both the ZIO effect (`ZIO[R, E, A]`) and its environment (`R`), it will run this effect and then will return its result as an `Either[E, A]` value.
+간단하게 생각하면, `Runtime System` 은 `ZIO` 이펙트(`ZIO[R, E, A]`)와 환경(`R`)으로 이루어진 하나의 블랙 박스라고 볼 수 있다.</br>
+`Runtim System` 은 이를 실행하고 결과값을 `Either[E, A]` 값으로 반환한다.
 
-
-![ZIO Runtime System](/img/zio-runtime-system.svg)
+![ZIO Runtime System](../img/zio-runtime-system.svg)
 
 ## Responsibilities of the Runtime System
 
-Runtime Systems have a lot of responsibilities:
+`Runtime System` 들은 다음과 같은 많은 책임이 있다:
 
-1. **Execute every step of the blueprint** — They have to execute every step of the blueprint in a while loop until it's done.
+1. **청사진의 모든 스텝 실행** — 하나의 while 루프에서 모든 스텝이 실행되고 완료되어야 한다.
 
-2. **Handle unexpected errors** — They have to handle unexpected errors, not just the expected ones but also the unexpected ones. 
+2. **예기치 못한 오류 처리** — 예상된 오류 뿐만 아니라, 예상치 못한 오류도 처리해야 한다.
 
-3. **Spawn concurrent fiber** — They are actually responsible for the concurrency that effect systems have. They have to spawn a fiber every time we call `fork` on an effect to spawn off a new fiber.
+3. **동시성 fiber 생성** — 이펙트 시스템의 동시성에 대한 책임을 가진다. 이펙트에 `fork` 를 호출할 때마다 새로운 fiber 를 만들어야 한다.
 
-4. **Cooperatively yield to other fibers** — They have to cooperatively yield to other fibers so that fibers that are sort of hogging the spotlight, don't get to monopolize all the CPU resources. They have to make sure that the fibers split the CPU cores among all the fibers that are working.
+4. **다른 fiber 와의 협력** — CPU 자원을 독점할 수 있는 다른 fiber 와 협력하여 fiber 간의 CPU 자원을 적절히 분배해야 한다.
 
-5. **Capture execution and stack traces** — They have to keep track of where we are in the progress of our own user-land code so the nice detailed execution traces can be captured. 
+5. **실행 및 스택 추적 캡쳐** — 사용자 영역 코드의 실행 상황을 추적하여 더 나은 추적 결과가 캡쳐되어야 한다. (더 나은 로그 제공)
 
-6. **Ensure finalizers are run appropriately** — They have to ensure finalizers are run appropriately at the right point in all circumstances to make sure that resources are closed that clean-up logic is executed. This is the feature that powers Scope and all the other resource-safe constructs in ZIO.
+6. **보장된 종료자** — clean-up 로직이 수행되었을 때 자원이 정상적으로 종료되길 보장해야 하므로 어떤 상황에서든 종료자는 정상적으로 실행됨이 보장되어야 한다. 이것은 ZIO 의 Scope 과 다른 자원 안정적인 구조를 강화하는 기능이다.
 
-7. **Handle asynchronous callback** — They have to handle this messy job of dealing with asynchronous callbacks. So we don't have to deal with async code. When we are doing ZIO, everything is just async out of the box. 
+7. **비동기 콜백 제어** — 비동기 콜백을 처리하는 복잡한 로직을 대신 제어함으로써 비동기 코드를 다루지 않아도 된다. ZIO 를 사용할 때, 모든 것은 실행된 비동기(async out of the box)이다.
 
 ## Running a ZIO Effect
 
-There are two common ways to run a ZIO effect. Most of the time, we use the [`ZIOAppDefault`](zioapp.md) trait. There are, however, some advanced use cases for which we need to directly feed a ZIO effect into the runtime system's `unsafeRun` method:
-
+`ZIO Effect` 를 실행하는 일반적인 두 가지 방법이 있다.</br>
+대부분의 경우 [`ZIOAppDefault`](ZIOAPP.md) 트레이트를 사용한다. </br>
+하지만 `unsafeRun` 을 사용해 `ZIO Effect` 를 런타임 시스템에 직접 주입하는 방법을 커스텀할 수 있다:
 ```scala mdoc:compile-only
 import zio._
 
@@ -59,12 +62,12 @@ object RunZIOEffectUsingUnsafeRun extends scala.App {
 }
 ```
 
-We don't usually use this method to run our effects. One of the use cases of this method is when we are integrating the legacy (non-effectful code) with the ZIO effect. It also helps us to refactor a large legacy code base into a ZIO effect gradually; Assume we have decided to refactor a component in the middle of a legacy code and rewrite that with ZIO. We can start rewriting that component with the ZIO effect and then integrate that component with the existing code base, using the `unsafeRun` function.
+위 메소드는 자주 사용되지 않지만, non-effectful 한 레거시 코드를 ZIO 로 통합하는 경우 등에 사용된다. 이는 방대한 레거시 코드를 ZIO 로 점진적으로 이동하는 데에 도움을 준다.</br>
+레거시 코드의 중간에 있는 컴포넌트 코드를 ZIO 로 재작성한다고 가정해 보자. 해당 컴포넌트를 ZIO Effect 로 재작성하고 `unsafeRun` 함수를 사용해 기존 코드에서 동작하게 할 수 있다.
 
 ## Default Runtime
 
-ZIO contains a default runtime called `Runtime.default` designed to work well for mainstream usage. It is already implemented as below:
-
+`ZIO` 에는 주로 사용되게 만들어진 `Runtime.default` 라는 기본 런타임이 있다. 다음과 같이 구현되어 있다:
 ```scala
 object Runtime {
   val default: Runtime[Any] =
@@ -72,10 +75,8 @@ object Runtime {
 }
 ```
 
-The default runtime contains minimum capabilities to bootstrap execution of ZIO tasks.
-
-We can easily access the default `Runtime` to run an effect:
-
+이 기본 런타임은 `ZIO` 작업을 부트스트랩 실행하는 데에 최소 기능이 포함되어 있다.</br>
+다음과 같이 쉽게 기본 `Runtime` 으로 Effect 를 실행할 수 있다:
 ```scala mdoc:compile-only
 object MainApp extends scala.App {
   val myAppLogic = ZIO.succeed(???)
@@ -90,33 +91,37 @@ object MainApp extends scala.App {
 
 ## Top-level And Locally Scoped Runtimes
 
-In ZIO, we have two types of runtimes:
+`ZIO` 엔 두 종류의 런타임이 있다:
 
-- **Top-level runtime** is the one that is used to run the entire ZIO application from the very beginning. There is only one top-level runtime when running a ZIO application. Here are some use-cases:
-  - Creating a top level runtime in a mixed application. For example, if we are using an HTTP library that does not have direct support for ZIO we may need to use `Runtime.unsafe.run` in the implementations of each of our routes.
-  - Another use-case is when we want to install a custom monitoring or supervisor from the very beginning of the application.
+- **최상위 런타임** 은 최초에 전체 `ZIO` 어플리케이션을 구동한다. 단 하나의 최상위 런타임만 존재할 수 있으며 사용 예는 다음과 같다:
+  - 혼합 어플리케이션에서 최상위 런타임 만들기 : `ZIO` 를 지원하지 않는 HTTP 라이브러리를 사용한다면 각각의 라우트에서 `Runtime.unsafe.run` 을 사용할 수 있다.
+  - 어플리케이션 최초에 커스텀 모니터링 혹은 supercvisor 를 설치하는 경우
 
-- **Locally scoped runtimes** are used during the execution of the ZIO application. They are local to a specific region of the code. Suppose we want to change the runtime configurations in the middle of a ZIO application. In such cases, we use locally scoped runtimes, for example:
-  - When we want to import an effectful or side-effecting application with a specific runtime.
-  - In some performance-critical regions, we want to disable logging temporarily.
-  - When we want to have a customized executor for running a portion of our code.
+- **지역적 런타임** 은 `ZIO` 어플리케이션의 실행 중에 사용된다. 이는 특정 구간의 로컬 코드이다.</br>
+`ZIO` 어플리케이션의 중간에서 런타임 설정을 바꾸려는 걸 생각해 보자. 이는 지역적 런타임이다. 예를 들면:
+  - 특정 런타임에 effectful 혹은 부수 효과가 있는 어플리케이션을 import 하고 싶은 경우
+  - 성능 이슈가 있는 구간에 로깅을 비활성화 하고 싶은 경우
+  - 부분 코드 실행을 위한 커스텀 실행자를 사용하고 싶은 경우
 
-ZLayer provides a consistent way to customize and configure runtimes. Using layers to customize the runtime, enables us to use ZIO workflows. So a configuration workflow can be pure, effectful, or resourceful. Let's say we want to customize the runtime based on configuration information from a file or database.
+`ZLayer` 는 런타임을 커스텀하거나 설정하는 일관된 방법을 제공한다. 레이어를 사용해 런타임을 커스텀함으로써, `ZIO` 워크플로를 사용할 수 있다. 따라서 설정 워크플로는 순수거나, effectful 하거나 resourceful 할 수 있다.</br>
+파일 혹은 데이터베이스의 설정 정보를 기반으로 런타임을 커스터마이징한다고 가정해 보자.
 
-In most cases, it is sufficient to customize application runtime using the [`bootstrap` layer](#configuring-runtime-using-bootstrap-layer) or [providing a custom configuration](#configuring-runtime-by-providing-configuration-layers) directly to our application. If none of these solutions fit to our problem, we can use [top-level runtime configurations](#top-level-runtime-configuration).
+대부분의 경우 [`bootstrap` layer](#configuring-runtime-using-bootstrap-layer) 혹은 [providing a custom configuration](#configuring-runtime-by-providing-configuration-layers) 을 사용해 어플리케이션 런타임을 커스텀하는 것으로 충분하다.</br>
+이 방법이 맞지 않는다면 [top-level runtime configurations](#top-level-runtime-configuration) 을 사용해 볼 수 있다.
 
-Let's talk about each solution in detail.
+각각의 솔루션을 자세히 알아보자.
 
 ## Locally Scoped Runtime Configuration
 
-In ZIO all runtime configurations are inherited from their parent workflows. So whenever we access a runtime configuration, or obtain a runtime inside a workflow, we are accessing the runtime of the parent workflow. We can override the runtime configuration of the parent workflow by providing a new configuration to a region of the code. This is called locally scoped runtime configuration. When the execution of that region is finished, the runtime configuration will be restored to its original value.
+`ZIO` 에서 모든 런타임 설정들은 부모 워크플로로부터 물려받는다. 따라서 런타임 설정에 접근하거나, 워크플로 내부의 런타임을 얻을 때마다 런타임의 부모 워크플로의에 접근하게 된다.</br>
+특정 지역의 코드에 새로운 설정을 제공함으로써 부모 워크플로의 런타임 설정을 덮어쓸 수 있다. 이를 지역 범위의 런타임 설정이라고 한다.</br>
+해당 지역의 실행이 끝나면 런타임 설정은 다시 기존 값으로 돌아간다.
 
-We mainly use `ZIO#provideXYZ` operators to provide a new runtime configuration to a specific region of the code:
+`ZIO#provideXYZ` 는 특정 지역 코드에 새로운 런타임 설정을 제공하기 위해 사용되는 연산자이다: (++)
 
 ### Configuring Runtime by Providing Configuration Layers
 
-By providing (`ZIO#provideXYZ`) runtime configuration layers to a ZIO workflow, we can change the runtime configs easily:
-
+`ZIO#provideXYZ` 로 `ZIO` 워크플로에 런타임 설정을 쉽게 바꿀 수 있다: (for 문에 provide)
 ```scala mdoc:compile-only
 import zio._
 
@@ -133,15 +138,14 @@ object MainApp extends ZIOAppDefault {
 }
 ```
 
-The output:
+결과:
 
 ```scala
 Application started!
 Application is about to exit!
 ```
 
-To provide runtime configuration to a specific region of a ZIO application, we should provide the configuration layer only to that specific region:
-
+`ZIO` 어플리케이션의 특정 지역에 런타임 설정을 추가하기 위해 설정 레이어를 추가할 수도 있다: (for 문 내부 provide)
 ```scala mdoc:compile-only
 import zio._
 
@@ -164,7 +168,7 @@ object MainApp extends ZIOAppDefault {
 }
 ```
 
-The output:
+결과:
 
 ```scala
 timestamp=2022-08-31T14:28:34.711461Z level=INFO thread=#zio-fiber-6 message="Application started!" location=<empty>.MainApp.run file=ZIOApp.scala line=9
@@ -174,10 +178,10 @@ timestamp=2022-08-31T14:28:34.832035Z level=INFO thread=#zio-fiber-6 message="Ap
 
 ### Configuring Runtime Using `bootstrap` Layer
 
-The `bootstrap` layer is a special layer that is mainly used to acquiring and releasing services that are necessary for the application to run. However, it can also be applied to runtime customization as well. This solution requires us to override the `bootstrap` layer from the `ZIOApp` trait.
+`bootstrap` 레이어는 어플리케이션 구동에 필요한 서비스들을 획득/해제하는데에 사용되는 특별한 레이어다.</br>
+하지만 이 또한 런타임 커스터마이징에 적용할 수 있다. `ZIOAPP` 트레이트의 `bootstrap` 레이어를 오버라이드하면 된다.
 
-By using this technique, after initialization of the top-level runtime, it will provide the `bootstrap` layer to the ZIO application given through the `run` method.
-
+최상위 런타임의 초기화 이후 이걸 적용하면 `run` 메소드를 통해 `ZIO` 어플리케이션에 `bootstrap` 레이어를 적용할 수 있다.
 ```scala mdoc:compile-only
 import zio._
 
@@ -196,17 +200,16 @@ object MainApp extends ZIOAppDefault {
 }
 ```
 
-The output:
-
+결과:
 ```scala
 Application started!
 Application is about to exit!
 ```
 
-Although using this method will apply the configuration layer to the whole ZIO application, it is categorized as local runtime configuration, because the `bootstrap` layer is evaluated and applied after the top-level runtime is initialized. So it will only be applied to the ZIO application given through the `run` method.
+이 메소드를 사용하면 전체 `ZIO` 어플리케이션에 적용되지만, 지역적 런타임 설정으로 분류된다. `bootstrap` 레이어는 최상위 런타임이 초기화된 이후 평가/적용되기 때문이다.</br>
+따라서 이는 `run` 메소드를 통해서만 적용될 수 있다.
 
-To elaborate more on this, let's look at the following example:
-
+이에 대한 더 자세한 설명은 다음 예시를 보라:
 ```scala mdoc:compile-only
 import zio._
 
@@ -228,8 +231,9 @@ object MainApp extends ZIOAppDefault {
 }
 ```
 
-What do we expect to see as the output? We have a `Runtime.removeDefaultLoggers` which removes the default logger from the runtime. So we expect to see log messages only from the simple logger. But that is not the case. We have an effectful configuration layer that is evaluated after the top-level runtime is initialized. So we can see the log message related to the initialization of `effectfulConfiguration` layer from the default logger:
-
+어떤 결과가 예상되나?</br>
+`Runtime.removeDefaultLoggers` 로 인해 런타임에서 default logger 가 제거되어 simple logger 로만 로그 메시지가 찍히기를 기대했을 것이다.</br>
+하지만 그렇지 않다. 최상위 런타임이 초기화된 후 `effectfulConfiguration` 가 평가된다. 따라서 `effectfulConfiguration` 레이어의 초기화와 관련된 로그 메시지는 default logger 로부터 출력받을 수 있다. (지우기 전이므로)
 ```scala
 timestamp=2022-09-01T08:07:47.870219Z level=INFO thread=#zio-fiber-6 message="Started effectful workflow to customize runtime configuration" location=<empty>.MainApp.effectfulConfiguration file=ZIOApp.scala line=8
 Application started!
