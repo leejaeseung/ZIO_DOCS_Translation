@@ -1,0 +1,106 @@
+package com.kakaopay.jarvis.planner.infra.redis.zioredis
+
+import com.kakaopay.jarvis.planner.infra.redis.zioredis.MyRespValue.internal.CrLf
+import zio.redis.RedisError
+import zio.redis.RespValue.SimpleString
+import zio.stream.{Stream, ZStream}
+import zio.{Cause, Chunk, IO, Ref, Schedule, ScopedRef, ZIO, ZLayer, durationInt}
+
+import java.io.IOException
+import java.nio.charset.StandardCharsets
+
+/**
+ * @author jason.junior
+ * @since 2024/01/17
+ */
+class RedisConnectionHealthCheckProxy(
+  currentRedisConnection: ScopedRef[Option[RedisConnection]],
+) extends RedisConnection {
+  override def read: Stream[IOException, Byte] =
+    for {
+      currentConnection <-
+        ZStream.fromZIO(currentRedisConnection.get.someOrFail(ClosedConnectionException()))
+      result <- currentConnection.read
+    } yield result
+
+  override def write(chunk: Chunk[Byte]): IO[IOException, Option[Unit]] =
+    for {
+      currentConnection <- currentRedisConnection.get.someOrFail(ClosedConnectionException())
+      result <- currentConnection.write(chunk)
+    } yield result
+}
+
+object RedisConnectionHealthCheckProxy {
+
+  private final val PingInterval = 30.seconds
+  private final val PingRetryInterval = 1.seconds
+
+  val layer: ZLayer[RedisConfig, RedisError.IOError, RedisConnection] = ZLayer.scoped {
+    for {
+      config <- ZIO.service[RedisConfig]
+
+      connected <- Ref.make(true)
+      currentConnection <- ScopedRef.fromAcquire(RedisConnectionLive.create(config))
+
+      _ <- ping(currentConnection, connected, config).fork
+    } yield new RedisConnectionHealthCheckProxy(currentConnection)
+  }
+
+  private def ping(
+    currentConnection: ScopedRef[Option[RedisConnection]],
+    connected: Ref[Boolean],
+    config: RedisConfig,
+  ) = {
+    def send(connection: RedisConnection, command: String) = {
+      val commandChunk = Chunk.fromArray(command.getBytes(StandardCharsets.US_ASCII)) ++ CrLf
+      connection.write(commandChunk)
+    }
+
+    def receive(connection: RedisConnection) = {
+      connection.read
+        .via(MyRespValue.decoder)
+        .mapZIO {
+          case Some(SimpleString("OK")) => ZIO.unit
+          case Some(SimpleString("PONG")) =>
+            resetIfUnConnected(currentConnection, connected, config)
+          case value =>
+            currentConnection.set(ZIO.none) *> ZIO.fail(
+              new IOException(s"command failed. response: $value"),
+            )
+        }
+        .timeoutFail(ConnectionTimeoutException())(PingInterval.plus(config.healthCheckTimeout))
+    }
+
+    ZIO
+      .scoped(for {
+        pingConnection <- RedisConnectionLive.create(config).someOrFail(ClosedConnectionException())
+        _ <- config.password
+               .map(password => send(pingConnection, s"AUTH $password"))
+               .getOrElse(ZIO.none)
+
+        _ <- send(pingConnection, "PING").repeat(Schedule.spaced(PingInterval)) raceFirst
+               receive(pingConnection).runDrain
+        _ <- ZIO.fail(new IOException("ping connection retry"))
+      } yield ())
+      .tapError { e =>
+        ZIO.logWarningCause("ping connection retry", Cause.fail(e)) *>
+          connected.set(false)
+      }
+      .retry(Schedule.exponential(PingRetryInterval) && Schedule.recurs(5))
+      .retry(Schedule.spaced(PingRetryInterval))
+  }
+
+  private def resetIfUnConnected(
+    currentConnection: ScopedRef[Option[RedisConnection]],
+    connected: Ref[Boolean],
+    config: RedisConfig,
+  ) = {
+    for {
+      _ <- ZIO.unlessZIO(connected.get) {
+             currentConnection.set(RedisConnectionLive.create(config))
+           }
+
+      _ <- connected.set(true)
+    } yield ()
+  }.orElseFail(new IOException())
+}
